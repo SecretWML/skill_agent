@@ -25,18 +25,19 @@ def get_file_content(url: str, timeout: int = 30) -> bytes:
         raise RuntimeError(f"文件下载失败: {str(e)}") from e
 
 
-def get_skills_dir() -> Path:
-    root = Path(__file__).resolve().parent.parent
-    skills_dir = root / "skills"
-    skills_dir.mkdir(parents=True, exist_ok=True)
-    return skills_dir
-
-
-def list_skills_sorted() -> list[Path]:
-    skills_dir = get_skills_dir()
-    folders = [p for p in skills_dir.iterdir() if p.is_dir()]
-    folders.sort(key=lambda p: p.stat().st_ctime)
-    return folders
+# def get_skills_dir(self) -> Path:
+#     root = Path(__file__).resolve().parent.parent
+#     yield self.create_text_message("文件路径为{root}。\n")
+#     skills_dir = root / "skills"
+#     skills_dir.mkdir(parents=True, exist_ok=True)
+#     return skills_dir
+#
+#
+# def list_skills_sorted() -> list[Path]:
+#     skills_dir = get_skills_dir()
+#     folders = [p for p in skills_dir.iterdir() if p.is_dir()]
+#     folders.sort(key=lambda p: p.stat().st_ctime)
+#     return folders
 
 
 def extract_url_and_name(file_item: Any) -> tuple[str | None, str | None]:
@@ -116,12 +117,24 @@ def _find_skill_folders(extracted_root: Path) -> list[Path]:
 
 
 class TMTool(Tool):
+    def get_skills_dir(self) -> Path:
+        root = Path(__file__).resolve().parent.parent
+        yield self.create_text_message("文件路径为{root}。\n")
+        skills_dir = root / "skills"
+        skills_dir.mkdir(parents=True, exist_ok=True)
+        return skills_dir
+
+    def list_skills_sorted(self) -> list[Path]:
+        skills_dir = self.get_skills_dir()
+        folders = [p for p in skills_dir.iterdir() if p.is_dir()]
+        folders.sort(key=lambda p: p.stat().st_ctime)
+        return folders
     def _invoke(self, tool_parameters: dict[str, Any]) -> Generator[ToolInvokeMessage]:
         command = str(tool_parameters.get("command", "")).strip()
         files_param = tool_parameters.get("files")
 
         if command in ("查看技能", "查看 技能", "查看"):
-            skills = list_skills_sorted()
+            skills = self.list_skills_sorted()
             if not skills:
                 yield self.create_text_message("❌当前没有已存入的技能包。\n")
                 return
@@ -142,7 +155,7 @@ class TMTool(Tool):
                 yield self.create_text_message("❌未检测到上传的 zip 文件，请提供 files 参数。\n")
                 return
 
-            skills_dir = get_skills_dir()
+            skills_dir = self.get_skills_dir()
             installed: list[str] = []
 
             for file_item in file_items:
@@ -205,7 +218,7 @@ class TMTool(Tool):
                             return
 
             yield self.create_text_message("✅技能已安装：\n" + "\n".join(installed) + "\n")
-            skills = list_skills_sorted()
+            skills = self.list_skills_sorted()
             lines = [f"{idx + 1}. {p.name}" for idx, p in enumerate(skills)]
             yield self.create_text_message("👓当前技能列表：\n" + ("\n".join(lines) if lines else "（空）\n"))
             return
@@ -213,7 +226,7 @@ class TMTool(Tool):
         m_del = re.match(r"^删除技能(\d+)$", command)
         if m_del:
             idx = int(m_del.group(1))
-            skills = list_skills_sorted()
+            skills = self.list_skills_sorted()
             if idx < 1 or idx > len(skills):
                 yield self.create_text_message("❌技能序号无效或超出范围。请先使用“查看技能”确认序号。\n")
                 return
@@ -224,7 +237,7 @@ class TMTool(Tool):
                 yield self.create_text_message(f"❌删除失败：{e}\n")
                 return
             yield self.create_text_message(f"✅已删除技能{idx}：{target.name}\n")
-            skills = list_skills_sorted()
+            skills = self.list_skills_sorted()
             if not skills:
                 yield self.create_text_message("😑当前技能列表为空。\n")
             else:
@@ -235,7 +248,7 @@ class TMTool(Tool):
         m_dl = re.match(r"^下载技能(\d+)$", command)
         if m_dl:
             idx = int(m_dl.group(1))
-            skills = list_skills_sorted()
+            skills = self.list_skills_sorted()
             if idx < 1 or idx > len(skills):
                 yield self.create_text_message("❌技能序号无效或超出范围。请先使用“查看技能”确认序号。\n")
                 return
